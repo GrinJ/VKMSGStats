@@ -18,6 +18,8 @@ class VKMSGStat:
         #Problems flag
         self.noProblem = True
 
+        self.__toPrint = ""
+
         try:
             #Try to authorize
             self.__vk_session.authorization()
@@ -53,7 +55,6 @@ class VKMSGStat:
         #Get the result from API
         messages = self.__tools.get_all('messages.getHistory', 100, {'count': 200, 'peer_id': profileNum})
 
-        people = {}
         self.stats = {}
         self.stats['count'] = messages['count']
         self.stats['people'] = {}
@@ -61,18 +62,16 @@ class VKMSGStat:
         #Calculate the messages
         for num in range(0, messages['count']):
             from_id = messages['items'][num]['from_id']
-            if from_id in people:
-                people[from_id] += 1
+            if from_id in self.stats['people']:
+                self.stats['people'][from_id]['count'] += 1
             else:
-                people[from_id] = 1
+                self.stats['people'][from_id] = {}
+                self.stats['people'][from_id]['count'] = 1
 
         #Create stats array
-        for key, value in people.items():
+        for key, value in self.stats['people'].items():
             human = self.__vk.users.get(user_ids=key)[0]
-            name = human['first_name'] + " " + human['last_name']
-            self.stats['people'][key] = {}
-            self.stats['people'][key]['count'] = value
-            self.stats['people'][key]['user'] = name
+            self.stats['people'][key]['user'] = human['first_name'] + " " + human['last_name']
 
         #Create system array just for printing
         self.__result = {}
@@ -81,11 +80,15 @@ class VKMSGStat:
             self.__result[value['count']] = "%s - %s (%.1f%%)" % (
             value['user'], '{:,}'.format(value['count']).replace(',', ' '), 100.0 * float(value['count']) / float(self.stats['count']))
 
+        #Formate the string to print
+        self.__toPrint = "Total - %s" % '{:,}'.format(self.stats['count']).replace(',', ' ') + "\n"
+
+        for key, value in reversed(sorted(self.__result.items(), key=operator.itemgetter(0))):
+            self.__toPrint += "%s\n" % value
+
+        #Return the dict
         return self.stats
 
     #Prints the result
     def printStats(self):
-        print("Total - %s" % '{:,}'.format(self.stats['count']).replace(',', ' '))
-
-        for key, value in reversed(sorted(self.__result.items(), key=operator.itemgetter(0))):
-            print(value)
+        print(self.__toPrint)
